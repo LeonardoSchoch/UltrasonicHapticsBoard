@@ -5,15 +5,15 @@ import subprocess
 import scipy.io
 import os
 
-# Zielbild laden
+# Load target image
 target_file = 'smiley.png'
 
-# Zielamplitude berechnen
+# Calculate target amplitude
 target_amp = color.rgb2gray(io.imread(target_file))
-target_amp = target_amp.astype(np.float64)  # Umwandlung in double
-target_amp /= np.max(target_amp)  # Normalisieren
+target_amp = target_amp.astype(np.float64)  # Convert to double
+target_amp /= np.max(target_amp)  # Normalize
 
-# MATLAB-Skript erstellen
+# Create MATLAB script
 matlab_script = f"""
 targetfile = 'smiley.png';
 
@@ -25,27 +25,26 @@ targetAmp = targetAmp / max(max(targetAmp)); %normalize
 save('results.mat', 'amps', 'phases', 'amp_slice');
 """
 
-# Temporäres MATLAB-Skript speichern
+# Save temporary MATLAB script
 temp_script_path = os.path.join(os.getcwd(), 'temp_script.m').replace('\\', '/')
 with open(temp_script_path, 'w') as f:
     f.write(matlab_script)
 
-# MATLAB im Hintergrund starten und das Skript ausführen
-matlab_path = r'C:\Program Files\MATLAB\R2024b\bin\matlab.exe'  # Ändere das auf den tatsächlichen Pfad zu deiner MATLAB-Installation
+# Start MATLAB in the background and run the script
+matlab_path = r'C:\Program Files\MATLAB\R2024b\bin\matlab.exe'  # Change this to the actual path of your MATLAB installation
 subprocess.run([matlab_path, '-batch', f"run('{temp_script_path}')"])
 
-
-# Ergebnisse aus der MAT-Datei laden
+# Load results from the MAT file
 results = scipy.io.loadmat('results.mat')
-amps = results['amps'].flatten()  # Umwandeln in ein 1D-Array
+amps = results['amps'].flatten()  # Convert to 1D array
 phases = results['phases'].flatten()
 amp_slice = results['amp_slice']
 
-# Bereinigung: temporäre Dateien löschen
+# Cleanup: delete temporary files
 os.remove(temp_script_path)
 os.remove('results.mat')
 
-# Ziel und erhaltenes Bild plotten
+# Plot target and obtained image
 plt.subplot(2, 1, 1)
 plt.imshow(target_amp, cmap='gray')
 plt.title('Target')
@@ -59,8 +58,8 @@ plt.axis('off')
 plt.tight_layout()
 plt.show()
 
-# Mittlere quadratische Abweichung ausgeben
-target_amp /= np.max(target_amp)  # Normalisieren
-amp_slice /= np.max(amp_slice)  # Normalisieren
+# Output mean squared error
+target_amp /= np.max(target_amp)  # Normalize
+amp_slice /= np.max(amp_slice)  # Normalize
 mse = np.sum((target_amp - amp_slice) ** 2) / amp_slice.size
 print(mse)
