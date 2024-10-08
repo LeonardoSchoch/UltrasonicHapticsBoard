@@ -8,6 +8,8 @@ import serial
 
 matlab_path = 'C:/Program Files/MATLAB/R2024b/bin/matlab.exe'
 target_file = 'circle.ply'
+com_port = 'COM1'
+baud_rate = 9600
 
 grid_size = 32  # max grid size (this size needs to be double the actual grid size of the board, e.g. for a 16x16 board, use 32)
 max_dist = 0.25  # max distance from ground plane (in meters)
@@ -208,7 +210,7 @@ if __name__ == '__main__':
     phases = np.round(phases * phase_res / 2).astype(int) % phase_res
     phases[phases < 0] += phase_res
     
-    transmitter = PhaseTransmitter(port='COM1')
+    transmitter = PhaseTransmitter(port=com_port, baudrate=baud_rate)
 
     for i, phase_array in enumerate(phases[:5]):
         print("------------------------------")
