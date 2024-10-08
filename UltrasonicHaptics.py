@@ -9,7 +9,7 @@ import serial
 matlab_path = 'C:/Program Files/MATLAB/R2024b/bin/matlab.exe'
 target_file = 'circle.ply'
 com_port = 'COM1'
-baud_rate = 9600
+baud_rate = 115200
 
 grid_size = 32  # max grid size (this size needs to be double the actual grid size of the board, e.g. for a 16x16 board, use 32)
 max_dist = 0.25  # max distance from ground plane (in meters)
@@ -138,65 +138,93 @@ class PhaseTransmitter:
         'swap_buffer': 0xFD
     }
 
-    def __init__(self, port, baudrate=9600, stopbits=serial.STOPBITS_ONE, timeout=1):
+    def __init__(self, port, baudrate=115200, bytesize=serial.EIGHTBITS ,stopbits=serial.STOPBITS_ONE, parity=serial.PARITY_NONE, timeout=None, debug=False):
         """
         Initialize the serial connection.
         
         Parameters:
         - port: The COM port (e.g., 'COM3', '/dev/ttyUSB0')
-        - baudrate: Baud rate for the communication (default 9600)
+        - baudrate: Baud rate for the communication (default 115200)
+        - bytesize: Number of data bits (default 8 bits)
         - stopbits: Number of stop bits (default 1 stop bit)
-        - timeout: Timeout for reading in seconds (default 1 second)
+        - parity: Parity setting (default None)
+        - timeout: Timeout for reading in seconds (default None)
+        - debug: Enable debug mode (default False)
         """
+        self.debug = debug
         
         self.ser = serial.Serial(
             port=port,
             baudrate=baudrate,
             stopbits=stopbits,
+            parity=parity,
             timeout=timeout
         )
         if self.ser.is_open:
             print(f"Connection to {self.ser.port} established.")
         else:
             print(f"Connection to {self.ser.port} failed.")
-
-    def send_command(self, command):
-        """Send a command to the device based on the command protocol."""
-
-        if isinstance(command, (str, int, np.integer)):
-            if isinstance(command, str) and command in self.commands:
-                command_byte = self.commands[command]
-                self.ser.write(command_byte)
-                print(f"Sent command: {command}, byte: 0x{command_byte:02X}")
-            elif isinstance(command, (int, np.integer)) and command < self.commands['set_phases_amplitudes']:
-                self.ser.write(command)
-                print(f"Sent command: set_phases_amplitudes, byte: 0x{command:02X}")
-            else:
-                if isinstance(command, str):
-                    print(f"Invalid command: {command}")
-                elif isinstance(command, (int, np.integer)):
-                    print(f"Invalid command: 0x{command:02X}")
-        else:
-            print("Command must be a string or integer.")
-
+            
+    def send_byte(self, data):
+        """Send a byte to the device."""
+        
+        # Check if data is a byte
+        if not isinstance(data, bytes):
+            print("Invalid data type: data must be a byte.")
+            
+        # Send data
+        self.ser.write(data)
+        
+        # Print the sent byte
+        print(f"Sent byte: 0x{data[0]:02x}")
+        
+        # Print the received byte if in debug mode
+        if self.debug:
+            read_byte = self.ser.read(1)
+            if read_byte != b'': print(f"Received byte: 0x{read_byte[0]:02x}")
+            else: print("Received byte: None")
+            
+    def send_int(self, data):
+        """Send an integer value to the device."""
+        
+        # Check if data is an integer
+        if not isinstance(data, (int, np.integer)):
+            print("Invalid data type: data must be an integer.")
+            
+        # Send data, convertion of int to bytes, np.integer is converted to int first
+        self.ser.write(int(data).to_bytes())
+        
+        # Print the sent byte
+        print(f"Sent byte: 0x{data:02x}")
+        
+        # Print the received byte if in debug mode
+        if self.debug:
+            read_byte = self.ser.read(1)
+            if read_byte != b'': print(f"Received byte: 0x{read_byte[0]:02x}")
+            else: print("Received byte: None")
 
     def send_phases(self, phases):
         """Send an array of phases to the device, encoded as per the protocol."""
         
         # Send command to start receiving phases
-        self.send_command('start_receiving_phases')
+        self.send_int(self.commands['start_receiving_phases'])
         
         for phase in phases:
-            # Send each phase as an integer
-            self.send_command(phase)
+            if isinstance(phase, bytes):
+                self.send_byte(phase)
+            elif isinstance(phase, (int, np.integer)):
+                self.send_int(phase)
+            else:
+                print("Invalid data type: phase must be a byte or an integer.")
                 
         # Once all phases are sent, we can send a command to swap buffers
-        self.send_command('swap_buffer')
+        self.send_int(self.commands['swap_buffer'])
 
     def close(self):
         """Close the serial connection."""
         
         self.ser.close()
+
 
 
 
